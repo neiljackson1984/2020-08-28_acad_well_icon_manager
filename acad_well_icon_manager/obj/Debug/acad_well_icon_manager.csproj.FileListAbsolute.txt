@@ -1,6 +1,0 @@
-C:\work\2020-08-28_acad_well_icon_manager\acad_well_icon_manager\bin\Debug\acad_well_icon_manager.dll.config
-C:\work\2020-08-28_acad_well_icon_manager\acad_well_icon_manager\bin\Debug\acad_well_icon_manager.dll
-C:\work\2020-08-28_acad_well_icon_manager\acad_well_icon_manager\bin\Debug\acad_well_icon_manager.pdb
-C:\work\2020-08-28_acad_well_icon_manager\acad_well_icon_manager\obj\Debug\acad_well_icon_manager.csproj.CoreCompileInputs.cache
-C:\work\2020-08-28_acad_well_icon_manager\acad_well_icon_manager\obj\Debug\acad_well_icon_manager.dll
-C:\work\2020-08-28_acad_well_icon_manager\acad_well_icon_manager\obj\Debug\acad_well_icon_manager.pdb
