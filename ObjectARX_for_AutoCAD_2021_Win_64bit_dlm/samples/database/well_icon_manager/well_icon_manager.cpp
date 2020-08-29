@@ -33,16 +33,14 @@ void listPline();
 void iterate(AcDbObjectId id);
 void initApp();
 void unloadApp();
-extern "C"
-AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCode, void*);
+extern "C" AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCode, void*);
 
 // This is the main function of this app.  It allows the
 // user to select an entity.  It then checks to see if the
 // entity is a 2d-polyline.  If so, then it calls iterate
 // passing in the objectId of the pline.
 // 
-void
-listPline()
+void listPline()
 {
     int rc;
     ads_name en;
@@ -75,8 +73,7 @@ listPline()
 // a vertex iterator. It then iterates through the vertices,
 // printing out the vertex location.
 // 
-void
-iterate(AcDbObjectId plineId)
+void iterate(AcDbObjectId plineId)
 {
     AcDb2dPolyline *pPline;
     acdbOpenObject(pPline, plineId, AcDb::kForRead);
@@ -109,35 +106,41 @@ iterate(AcDbObjectId plineId)
 // kInitAppMsg case.  This function is used to add commands
 // to the command stack.
 // 
-void
-initApp()
+void initApp()
 {
-    acedRegCmds->addCommand(_T("ASDK_PLINETEST_COMMANDS"),
-        _T("ASDK_ITERATE"), _T("ITERATE"), ACRX_CMD_MODAL,
-        listPline);
+    acutPrintf(_T("\nHello Woxxxrld."));
+    acedRegCmds->addCommand(
+        _T("ASDK_PLINETEST_COMMANDS"),
+        _T("ASDK_ITERATE"), 
+        _T("ITERATE"), 
+        ACRX_CMD_MODAL,
+        listPline
+    );
+
+    acutPrintf(_T("\nHello World.\n"));
+    //listPline();
 }
 
 // Clean up function called from acrxEntryPoint during the
 // kUnloadAppMsg case.  This function removes this apps
 // command set from the command stack.
 // 
-void
-unloadApp()
+void unloadApp()
 {
     acedRegCmds->removeGroup(_T("ASDK_PLINETEST_COMMANDS"));
+    acutPrintf(_T("\nGoodbye.\n"));
 }
 
-AcRx::AppRetCode
-acrxEntryPoint(AcRx::AppMsgCode msg, void* appId)
+AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCode msg, void* appId)
 {
     switch (msg) {
-    case AcRx::kInitAppMsg:
-        acrxDynamicLinker->unlockApplication(appId);
-		acrxDynamicLinker->registerAppMDIAware(appId);
-        initApp();
-        break;
-    case AcRx::kUnloadAppMsg:
-        unloadApp();
+        case AcRx::kInitAppMsg:
+            acrxDynamicLinker->unlockApplication(appId);
+		    acrxDynamicLinker->registerAppMDIAware(appId);
+            initApp();
+            break;
+        case AcRx::kUnloadAppMsg:
+            unloadApp();
     }
     return AcRx::kRetOK;
 }

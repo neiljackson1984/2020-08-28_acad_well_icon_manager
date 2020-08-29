@@ -1,0 +1,2 @@
+C:\work\2020-08-28_acad_well_icon_manager\ObjectARX_for_AutoCAD_2021_Win_64bit_dlm\samples\database\well_icon_manager\x64\Debug\well_icon_manager.arx
+C:\work\2020-08-28_acad_well_icon_manager\ObjectARX_for_AutoCAD_2021_Win_64bit_dlm\samples\database\well_icon_manager\x64\Debug\well_icon_manager.pdb

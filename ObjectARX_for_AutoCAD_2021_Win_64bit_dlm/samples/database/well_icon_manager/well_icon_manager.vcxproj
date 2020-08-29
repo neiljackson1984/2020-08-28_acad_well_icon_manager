@@ -36,6 +36,14 @@
     <Import Project="..\..\..\inc\arx.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>C:\work\2020-08-28_acad_well_icon_manager\ObjectARX_for_AutoCAD_2021_Win_64bit_dlm\inc;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\work\2020-08-28_acad_well_icon_manager\ObjectARX_for_AutoCAD_2021_Win_64bit_dlm\lib-x64;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>C:\work\2020-08-28_acad_well_icon_manager\ObjectARX_for_AutoCAD_2021_Win_64bit_dlm\inc;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\work\2020-08-28_acad_well_icon_manager\ObjectARX_for_AutoCAD_2021_Win_64bit_dlm\lib-x64;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
@@ -49,6 +57,9 @@
       <ModuleDefinitionFile>..\..\..\inc\AcRxDefault.def</ModuleDefinitionFile>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
+    <PostBuildEvent>
+      <Command>autohotkey "$(ProjectDir)executeInAutocad.ahk" "$(TargetPath)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -68,9 +79,15 @@
       <ModuleDefinitionFile>..\..\..\inc\AcRxDefault.def</ModuleDefinitionFile>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
+    <PostBuildEvent>
+      <Command>autohotkey "$(ProjectDir)executeInAutocad.ahk" "$(TargetPath)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="well_icon_manager.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="well_icon_manager.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
