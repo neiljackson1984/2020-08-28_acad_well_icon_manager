@@ -201,10 +201,11 @@ void initApp()
         while (pResbuf != NULL) {
             int inxdata;
             short theType;
-            ACHAR* typeName;
+            std::wstring typeName;
             theType = dxftype(pResbuf->restype, ET_NORM, &inxdata);
-            
-            acutPrintf(_T("Found an xdata item %d\n"), theType);
+            std::wstring message;
+            message += _T("Found an xdata item\n");
+
 
             switch (theType) {
                 case RTNONE:  typeName = _T("RTNONE");         break;
@@ -229,7 +230,71 @@ void initApp()
                 case RTMODELESS:  typeName = _T("RTMODELESS"); break;
                 default: break;
             }
-            acutPrintf(_T("type: %s\n"), typeName);
+
+            message += _T("\ttype: ") + typeName + _T("\n");
+            message += _T("\tvalue: ");
+            switch (theType) {
+            case RTNONE:  
+                message += L"(none)";
+                break;
+            case RTREAL:
+            case RTANG:
+                message += std::to_wstring(pResbuf->resval.rreal );         
+                break;
+            case RTPOINT: 
+            case RT3DPOINT:
+                message += std::to_wstring(pResbuf->resval.rpoint[0]);
+                message += L", ";
+                message += std::to_wstring(pResbuf->resval.rpoint[1]);
+                message += L", ";
+                message += std::to_wstring(pResbuf->resval.rpoint[2]);
+                break;
+            case RTSHORT: 
+            case RTORINT:
+                message += std::to_wstring(pResbuf->resval.rint);
+                break;
+            case RTSTR:  
+                message += pResbuf->resval.rstring;
+                break;
+            case RTENAME:
+            case RTPICKS:
+                message += std::to_wstring(pResbuf->resval.rlname[0]);
+                message += L" ";
+                message += std::to_wstring(pResbuf->resval.rlname[1]);
+                break;
+            case RTLONG: 
+                message += std::to_wstring(pResbuf->resval.rlong);
+                break;
+            case RTVOID:  
+                message += L"<void>";
+                break;
+            case RTLB:  
+                message += L"<list begin>";
+                break;
+            case RTLE:
+                message += L"<list end>";
+                break;
+            case RTDOTE: 
+                message += L"<dot>";
+                break;
+            case RTNIL: 
+                message += L"<nil>";
+                break;
+            case RTDXF0: 
+                message += L"<dxf0>";
+                break;
+            case RTT: 
+                message += L"<t>";
+                break;
+            case RTRESBUF: 
+                message += L"another resbuf";
+                break;
+            case RTMODELESS:  
+                break;
+            default: break;
+            }
+            message += L"\n";
+            acutPrintf(message.c_str());
             pResbuf = pResbuf->rbnext;
         }
 
