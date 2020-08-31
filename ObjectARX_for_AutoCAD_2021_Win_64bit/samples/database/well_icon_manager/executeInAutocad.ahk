@@ -38,29 +38,30 @@ tempFile:=A_Temp . "\" . inputFileBasename . A_TickCount . "." . inputFileExtens
 
 ; acadCommand:="(command-s "".NETLOAD""  " . """" . addSlashes(tempFile) . """" . ")(princ)" . " "
 
-sendToAutocadCommandLine("(mapcar"
-    . "    'arxunload"
-    . "    (vl-remove-if-not"
-    . "        '(lambda (x) "
-    . "            (="
-    . "                (vl-string-mismatch"
-    . "                    x"
-    . "                    " . """" . inputFileBasename . """" . ""
-    . "                )"
-    . "                (strlen " . """" . inputFileBasename . """" . ")"
-    . "            )"
-    . "        )"
-    . "        (arx)"
-    . "    )"
+sendToAutocadCommandLine(""
+    . "(progn"                                                                 . " " 
+    .     "(mapcar"                                                            . " " 
+    .         "'(lambda (y)"                                                   . " "
+    .                "(princ (strcat ""\n"" ""unloading "" y ""\n""))"         . " "
+    .                "(arxunload y)"                                           . " "
+    .          ")"                                                             . " "
+    .         "(vl-remove-if-not"                                              . " " 
+    .             "'(lambda (x)"                                               . " " 
+    .                 "(="                                                     . " " 
+    .                     "(vl-string-mismatch"                                . " " 
+    .                         "x"                                              . " " 
+    .                         "" . """" . inputFileBasename . """" . ""        . " " 
+    .                     ")"                                                  . " " 
+    .                     "(strlen " . """" . inputFileBasename . """" . ")"   . " " 
+    .                 ")"                                                      . " " 
+    .             ")"                                                          . " " 
+    .             "(arx)"                                                      . " " 
+    .         ")"                                                              . " " 
+    .     ")"                                                                  . " " 
+    .     "(princ)"                                                            . " " 
     . ")" 
-    . "(princ)"
     . " ")
-
-; acadCommand:="(arxunload " . """" . addSlashes(tempFile) . """" . ")(princ)" . " "
-
 FileCopy, %inputFile%, %tempFile%
-
-
 sendToAutocadCommandLine("(arxload " . """" . addSlashes(tempFile) . """" . ")(princ)" . " ")
 
 
@@ -73,23 +74,16 @@ addSlashes(x)
 ; this function does not do anything like sending and "enter" or space keystroke to
 ; cause the command to run -- it merely does the euqivalent of typing the string acadCommand
 ; on the autocad command line.
+; sendToAutocadCommandLine(acadCommand)
 sendToAutocadCommandLine(acadCommand)
 {
-    ;Get the currently active window  
-    WinGet, originalActiveWindow, ID, A
-
-    WinGet, acadMainWindowHandle, ID, AutoCAD ahk_exe acad.exe
-
-    if (acadMainWindowHandle == "")
+    acad:=ComObjActive("AutoCAD.Application")
+    variantBooleanTrue:=-1
+    if( acad.GetAcadState().IsQuiescent != variantBooleanTrue)
     {
-        MsgBox, "Acad needs to be running for this script to work. Please start Acad and try again."
-        ExitApp
+        MsgBox, % "AutoCAD appears not to be quiescent (e.g. AutoCAD might be in the middle of a command), so we cannot send the command."
+    } else {
+        acad.ActiveDocument.SendCommand(acadCommand)
     }
-    WinActivate, ahk_id %acadMainWindowHandle%
-    Sleep, 100
-    Send {Esc}{Esc} ;;cancels any running autocad command
-    SendRaw %acadCommand%
-    ;Send {Enter}
-    Sleep, 120
-    WinActivate, ahk_id %originalActiveWindow%
 }
+
