@@ -26,8 +26,13 @@
 #include <adslib.h>
 #include <geassign.h>
 #include <dbapserv.h>
-////#include <dbmain.h>
+#include <dbmain.h>
+#include <dbeval.h>
 #include "tchar.h"
+#include <list>
+#include <rxclass.h>
+#include <rxmember.h>
+
 
 
 
@@ -99,6 +104,150 @@ void iterate(AcDbObjectId id);
 void initApp();
 void unloadApp();
 extern "C" AcRx::AppRetCode acrxEntryPoint(AcRx::AppMsgCode, void*);
+
+class ResbufWrapper {
+    private:
+       resbuf* pResbuf;
+
+    public:
+        ResbufWrapper(resbuf* pResbuf) {
+            this->pResbuf = pResbuf;
+        }
+
+        ~ResbufWrapper() {
+            acutRelRb(pResbuf);
+        }
+
+        static std::wstring resultTypeCodeToString(short resultTypeCode) {
+            std::wstring returnValue;
+            switch(resultTypeCode){
+                case RTNONE       : returnValue = L"RTNONE";      break;
+                case RTREAL       : returnValue = L"RTREAL";      break;
+                case RTPOINT      : returnValue = L"RTPOINT";     break;
+                case RTSHORT      : returnValue = L"RTSHORT";     break;
+                case RTANG        : returnValue = L"RTANG";       break;
+                case RTSTR        : returnValue = L"RTSTR";       break;
+                case RTENAME      : returnValue = L"RTENAME";     break;
+                case RTPICKS      : returnValue = L"RTPICKS";     break;
+                case RTORINT      : returnValue = L"RTORINT";     break;
+                case RT3DPOINT    : returnValue = L"RT3DPOINT";   break;
+                case RTLONG       : returnValue = L"RTLONG";      break;
+                case RTVOID       : returnValue = L"RTVOID";      break;
+                case RTLB         : returnValue = L"RTLB";        break;
+                case RTLE         : returnValue = L"RTLE";        break;
+                case RTDOTE       : returnValue = L"RTDOTE";      break;
+                case RTNIL        : returnValue = L"RTNIL";       break;
+                case RTDXF0       : returnValue = L"RTDXF0";      break;
+                case RTT          : returnValue = L"RTT";         break;
+                case RTRESBUF     : returnValue = L"RTRESBUF";    break;
+                case RTMODELESS   : returnValue = L"RTMODELESS";  break;
+                default           : returnValue = std::wstring(L"UNKNOWN_RETURN_TYPE_CODE:") + std::to_wstring(resultTypeCode);
+            };
+            return returnValue;
+        }
+
+        std::wstring toString() {
+            std::wstring returnValue;
+            returnValue += L"resbuf:\n";
+            if (pResbuf == NULL) {
+                returnValue += std::wstring(_T("\t")) + _T("NULL");
+            } else {
+                for (resbuf* head = pResbuf; head != NULL; head = head->rbnext) {
+                    int inxdata;
+                    short resultTypeCode;
+                    resultTypeCode = dxftype(head->restype, ET_NORM, &inxdata);
+                    returnValue += std::wstring(_T("\t")) + _T("type: ") + ResbufWrapper::resultTypeCodeToString(resultTypeCode) + L", ";
+                    returnValue += std::wstring(_T("value: "));
+
+                    switch (resultTypeCode) {
+                    case RTNONE:
+                        returnValue += L"(none)";
+                        break;
+                    case RTREAL:
+                    case RTANG:
+                        returnValue += std::to_wstring(head->resval.rreal);
+                        break;
+                    case RTPOINT:
+                    case RT3DPOINT:
+                        returnValue += 
+                           std::to_wstring(head->resval.rpoint[0])
+                           + L", "
+                           + std::to_wstring(head->resval.rpoint[1])
+                           + L", "
+                           + std::to_wstring(head->resval.rpoint[2])
+                           + L"";
+                        break;
+                    case RTSHORT:
+                    case RTORINT:
+                        returnValue += std::to_wstring(head->resval.rint);
+                        break;
+                    case RTSTR:
+                        returnValue += head->resval.rstring;
+                        break;
+                    case RTENAME:
+                    case RTPICKS:
+                        returnValue += 
+                            std::to_wstring(head->resval.rlname[0])
+                            + L" "
+                            + std::to_wstring(head->resval.rlname[1])
+                            + L"";
+                        break;
+                    case RTLONG:
+                        returnValue += std::to_wstring(head->resval.rlong);
+                        break;
+                    case RTVOID:
+                        returnValue += L"<void>";
+                        break;
+                    case RTLB:
+                        returnValue += L"<list begin>";
+                        break;
+                    case RTLE:
+                        returnValue += L"<list end>";
+                        break;
+                    case RTDOTE:
+                        returnValue += L"<dot>";
+                        break;
+                    case RTNIL:
+                        returnValue += L"<nil>";
+                        break;
+                    case RTDXF0:
+                        returnValue += L"<dxf0>";
+                        break;
+                    case RTT:
+                        returnValue += L"<t>";
+                        break;
+                    case RTRESBUF:
+                        returnValue += ResbufWrapper((resbuf*) head->resval.mnLongPtr).toString();
+                        break;
+                    case RTMODELESS:
+                        returnValue += L"<rtmodeless>";
+                        break;
+                    default: 
+                        returnValue += L"value of resbuf of unknown type.";
+                        break;
+                    }
+                    returnValue += L"\n";
+                }
+            }
+            return returnValue;
+        }
+};
+
+
+std::wstring handleToString(AcDbHandle handle) {
+    ACHAR sHandle[17];
+    //lstrcpy(sHandle, _T(""));
+    handle.getIntoAsciiBuffer(sHandle, (size_t)17);
+    return std::wstring(sHandle);
+}
+
+void myAcutPrint(std::wstring x) {
+    acutPrintf(x.c_str());
+}
+
+void myAcutPrintLine(std::wstring x, int tabLevel = 0) {
+    myAcutPrint(std::wstring(tabLevel, L'\t') + x + L"\n");
+}
 
 // This is the main function of this app.  It allows the
 // user to select an entity.  It then checks to see if the
@@ -190,136 +339,155 @@ void initApp()
     pDb->getSymbolTable(pBlockTable, AcDb::kForRead);
     pBlockTable->getAt(_T("remediationWellWithNoConstituentsOfConcernInPerchedGroundwater"), pBlockTableRecord, AcDb::kForRead);
     pBlockTable->close();
-    //insepct any xdata that the block table record  might own:
-    resbuf* pResbuf;
-    pResbuf = pBlockTableRecord->xData();
-    if (pResbuf == NULL) {
-        acutPrintf(_T("%s"), _T("block table record has no xdata\n"));
-    }
-    else {
-        acutPrintf(_T("%s"), _T("block table record has some xdata\n"));
-        while (pResbuf != NULL) {
-            int inxdata;
-            short theType;
-            std::wstring typeName;
-            theType = dxftype(pResbuf->restype, ET_NORM, &inxdata);
-            std::wstring message;
-            message += _T("Found an xdata item\n");
+    //inspect any xdata that the block table record  might own:
+    acutPrintf((std::wstring(L"xData attached to the block table record: ") + ResbufWrapper(pBlockTableRecord->xData()).toString() + L"\n").c_str());
 
+    int tabLevel = 0;
 
-            switch (theType) {
-                case RTNONE:  typeName = _T("RTNONE");         break;
-                case RTREAL:  typeName = _T("RTREAL");         break;
-                case RTPOINT:  typeName = _T("RTPOINT");       break;
-                case RTSHORT:  typeName = _T("RTSHORT");       break;
-                case RTANG:  typeName = _T("RTANG");           break;
-                case RTSTR:  typeName = _T("RTSTR");           break;
-                case RTENAME:  typeName = _T("RTENAME");       break;
-                case RTPICKS:  typeName = _T("RTPICKS");       break;
-                case RTORINT:  typeName = _T("RTORINT");       break;
-                case RT3DPOINT:  typeName = _T("RT3DPOINT");   break;
-                case RTLONG:  typeName = _T("RTLONG");         break;
-                case RTVOID:  typeName = _T("RTVOID");         break;
-                case RTLB:  typeName = _T("RTLB");             break;
-                case RTLE:  typeName = _T("RTLE");             break;
-                case RTDOTE:  typeName = _T("RTDOTE");         break;
-                case RTNIL:  typeName = _T("RTNIL");           break;
-                case RTDXF0:  typeName = _T("RTDXF0");         break;
-                case RTT:  typeName = _T("RTT");               break;
-                case RTRESBUF:  typeName = _T("RTRESBUF");     break;
-                case RTMODELESS:  typeName = _T("RTMODELESS"); break;
-                default: break;
+    //inspect any extension dictionary that the block table record might own:
+    AcDbDictionary* pExtensionDictionary;
+    if (pBlockTableRecord->extensionDictionary() == AcDbObjectId::kNull) {
+        acutPrintf(_T("The block table record owns no extension dictionary.\n"));
+    } else if (acdbOpenObject(pExtensionDictionary, pBlockTableRecord->extensionDictionary(), AcDb::kForRead) != Acad::eOk ) {
+        acutPrintf(_T("Failed to open the block table's extension dictionary.\n"));
+    } else {
+        myAcutPrintLine(
+            std::wstring(L"The block table record has an extension dictionary of class ")
+            //+ pExtensionDictionary->className() 
+            //+ L" "
+            //+ pExtensionDictionary->objectId().objectClass()->name()
+            //+ L" "
+            + pBlockTableRecord->extensionDictionary().objectClass()->name(),
+            tabLevel
+        );
+        tabLevel++;
+        
+        for (AcDbDictionaryIterator* pDictionaryIterator = pExtensionDictionary->newIterator();
+            !pDictionaryIterator->done();
+            pDictionaryIterator->next()
+            ) {
+            std::wstring name = pDictionaryIterator->name();
+            myAcutPrintLine(name + L": " + pDictionaryIterator->objectId().objectClass()->name()+ L" ("  + handleToString(pDictionaryIterator->objectId().handle()) + L")", tabLevel);
+            tabLevel++;
+            AcDbObject* item;
+            if (acdbOpenObject(item, pDictionaryIterator->objectId(), AcDb::kForRead) != Acad::eOk) {
+                myAcutPrintLine(L"unable to open the object.", tabLevel);
             }
+            else {
 
-            message += _T("\ttype: ") + typeName + _T("\n");
-            message += _T("\tvalue: ");
-            switch (theType) {
-            case RTNONE:  
-                message += L"(none)";
-                break;
-            case RTREAL:
-            case RTANG:
-                message += std::to_wstring(pResbuf->resval.rreal );         
-                break;
-            case RTPOINT: 
-            case RT3DPOINT:
-                message += std::to_wstring(pResbuf->resval.rpoint[0]);
-                message += L", ";
-                message += std::to_wstring(pResbuf->resval.rpoint[1]);
-                message += L", ";
-                message += std::to_wstring(pResbuf->resval.rpoint[2]);
-                break;
-            case RTSHORT: 
-            case RTORINT:
-                message += std::to_wstring(pResbuf->resval.rint);
-                break;
-            case RTSTR:  
-                message += pResbuf->resval.rstring;
-                break;
-            case RTENAME:
-            case RTPICKS:
-                message += std::to_wstring(pResbuf->resval.rlname[0]);
-                message += L" ";
-                message += std::to_wstring(pResbuf->resval.rlname[1]);
-                break;
-            case RTLONG: 
-                message += std::to_wstring(pResbuf->resval.rlong);
-                break;
-            case RTVOID:  
-                message += L"<void>";
-                break;
-            case RTLB:  
-                message += L"<list begin>";
-                break;
-            case RTLE:
-                message += L"<list end>";
-                break;
-            case RTDOTE: 
-                message += L"<dot>";
-                break;
-            case RTNIL: 
-                message += L"<nil>";
-                break;
-            case RTDXF0: 
-                message += L"<dxf0>";
-                break;
-            case RTT: 
-                message += L"<t>";
-                break;
-            case RTRESBUF: 
-                message += L"another resbuf";
-                break;
-            case RTMODELESS:  
-                break;
-            default: break;
+                //acutPrintf((std::wstring(L"item->className(): ") + std::wstring(item->className()) + L"\n").c_str()); //always prints "AcDbObject", probably looking at the exact class of item
+
+
+                //acutPrintf((std::wstring(L"\t\titem->isA()->name(): \"") + std::wstring(item->isA()->name()) + L"\"\n").c_str());
+
+                //if (name == std::wstring(L"ACAD_ENHANCEDBLOCK") && item->isA() ==  AcDbEvalGraph::desc()) {
+                if (name == std::wstring(L"ACAD_ENHANCEDBLOCK") && item->isKindOf( AcDbEvalGraph::desc())) {
+                    myAcutPrintLine(L"found an enhanced (aka dynamic ?) block.", tabLevel);
+                //} else if ( name == std::wstring(L"AcDbDynamicBlockRoundTripPurgePreventer") && std::wstring(item->className()) == std::wstring(L"AcDbDynamicBlockRoundTripPurgePreventer")) {
+                } else if (name == std::wstring(L"AcDbDynamicBlockRoundTripPurgePreventer") && std::wstring(item->isA()->name()) == std::wstring(L"AcDbDynamicBlockPurgePreventer")) {
+                    myAcutPrintLine(L"found a purge preventer (what the hell is that?).", tabLevel);
+                    tabLevel++;
+                    //myAcutPrintLine(std::wstring(L"The object is of class ") + item->isA()->name(), tabLevel);
+                    //myAcutPrintLine(std::wstring(L"parent class: ") + item->isA()->myParent()->name(), tabLevel);
+                    //myAcutPrintLine(std::wstring(L"grandparent class: ") + item->isA()->myParent()->myParent()->name(), tabLevel);
+                    //myAcutPrintLine(std::wstring(L"great-grandparent class: ") + item->isA()->myParent()->myParent()->myParent()->name(), tabLevel);
+                    
+                    // report on the ancestors of  item->isA()
+                    std::list<AcRxClass*> ancestryList;
+
+                    AcRxClass* ancestor = item->isA();
+                    while (true) {
+                        ancestryList.push_front(ancestor);
+                        if (ancestor == AcRxObject::desc()) { break; }
+  
+                        ancestor = ancestor->myParent(); 
+                    }
+                    
+
+                    int i = 0;
+                    for (decltype(ancestryList)::iterator it = ancestryList.begin(); it != ancestryList.end(); ++it) {
+                        myAcutPrintLine(std::wstring(L"ancestor ") + std::to_wstring(i) + L" class: " + (*it)->name() , tabLevel);
+                        i++;
+                    }
+                    tabLevel--;
+
+                    //myAcutPrintLine(std::wstring(L"item->isA()->descendants()->isA()->name(): ") + ((AcRxObject*) item->isA()->descendants())->isA()->name(), tabLevel);
+                    //myAcutPrintLine(std::wstring(L"item->isA()->descendants()->isA()->name(): ") + ((AcRxClass**) item->isA()->descendants())[0]->name(), tabLevel);
+                    //myAcutPrintLine(std::wstring(L"item->isA()->descendants(): ") + std::to_wstring((uintptr_t) item->isA()->descendants()), tabLevel); //returns 0
+                    //myAcutPrintLine(std::wstring(L"item->isA()->myParent()->descendants(): ") + std::to_wstring((uintptr_t)item->isA()->myParent()->descendants()), tabLevel); //returns 0
+                    //myAcutPrintLine(std::wstring(L"item->isA()->myParent()->descendants()->isA()->name: ") + ((AcRxObject*) item->isA()->myParent()->descendants())->isA()->name(), tabLevel); //returns 0
+                    //myAcutPrintLine(std::wstring(L"item->isA(): ") + std::to_wstring((uintptr_t)item->isA()), tabLevel);
+                    myAcutPrintLine(std::wstring(L"ancestors of item->isA()->myParent()->descendants()->isA(): "), tabLevel);
+                    
+                    tabLevel++;
+                    ancestryList = std::list<AcRxClass*>();
+                    ancestor = ((AcRxObject*)item->isA()->myParent()->descendants())->isA();
+                    while (true) {
+                        ancestryList.push_front(ancestor);
+                        if (ancestor == AcRxObject::desc()) { break; }
+                        ancestor = ancestor->myParent();
+                    }
+
+                    i = 0;
+                    for (decltype(ancestryList)::iterator it = ancestryList.begin(); it != ancestryList.end(); ++it) {
+                        myAcutPrintLine(std::wstring(L"ancestor ") + std::to_wstring(i) + L" class: " + (*it)->name(), tabLevel);
+                        i++;
+                    }
+                    
+                   /* ancestors of item->isA()->myParent()->descendants()->isA() :
+                        ancestor 0 class : AcRxObject
+                        ancestor 1 class : AcRxSet
+                        ancestor 2 class : AcRxImpSet
+                   */ // neither AcRxSet nor AcRxImpSet is mentioned in the documentation.
+
+                    AcRxObject* mysteryDescendantsObject = ((AcRxObject*)item->isA()->myParent()->descendants());
+                    AcRxClass* mysteryDescendantsClass = mysteryDescendantsObject->isA();
+                    AcRxClass* mysteryAcRxSetClass = mysteryDescendantsObject->isA()->myParent();
+                    //myAcutPrintLine(std::wstring(L"mysteryDescendantsObject->isA()->name(): ") + mysteryDescendantsObject->isA()->name(), tabLevel);
+                    myAcutPrintLine(std::wstring(L"mysteryDescendantsClass->name(): ") + mysteryDescendantsClass->name(), tabLevel);
+                    myAcutPrintLine(std::wstring(L"mysteryAcRxSetClass->name(): ") + mysteryAcRxSetClass->name(), tabLevel);
+                    myAcutPrintLine(std::wstring(L"mysteryAcRxSetClass->members(): ") + std::to_wstring((uintptr_t)mysteryAcRxSetClass->members()), tabLevel); //prints 0
+
+                    // how can we (if at all) iterate over all instances of AcRxClass to completely traverse the entire taxonomy of AcRxObject descendants?
+
+                    //AcRxMemberCollection* memberCollectionP = ((AcRxObject*)item->isA()->myParent()->descendants())->isA()->members();
+
+                    //for (int i = 0; i < memberCollectionP->count(); i++) {
+                    //    myAcutPrintLine(std::wstring(L"member ") + memberCollectionP->getAt(i)->isA()->name(), tabLevel);
+                    //}
+
+                    tabLevel--;
+
+
+                }
             }
-            message += L"\n";
-            acutPrintf(message.c_str());
-            pResbuf = pResbuf->rbnext;
+            tabLevel--;
         }
-
-
-    };
-    acutRelRb(pResbuf);
+        tabLevel--;
+        pExtensionDictionary->close();
+    }
 
     
+    
+
+
     AcDbBlockTableRecordIterator* pBlockTableRecordIterator;
     pBlockTableRecord->newIterator(pBlockTableRecordIterator);
     AcDbEntity* pEntity;
     for (pBlockTableRecordIterator->start(); !pBlockTableRecordIterator->done(); pBlockTableRecordIterator->step()) {
         pBlockTableRecordIterator->getEntity(pEntity, AcDb::kForRead);
         AcDbHandle handle;
-        ACHAR sHandle[17];
-        lstrcpy(sHandle, _T(""));
-        pEntity->getAcDbHandle(handle);
-        handle.getIntoAsciiBuffer(sHandle, (size_t)17);
+        
+        //pEntity->getAcDbHandle(handle);
+        handle = pEntity->objectId().handle();
+        // of the above two statements, which seem to produce an equivalent effect, the latter seems cleaner to me.
+
         acutPrintf(
             _T("classname: %s, handle: %s\n"), 
             pEntity->isA()->name(),
-            sHandle
+            handleToString(handle)
         );
         pEntity->close();
-        
     }
     pBlockTableRecord->close();
     delete pBlockTableRecordIterator;
