@@ -251,6 +251,32 @@ std::wstring objectIdToString(AcDbObjectId objectId) {
     }
 }
 
+std::vector<AcRxClass*> getAncestry(AcRxClass *x) {
+    std::vector<AcRxClass*> ancestry = std::vector<AcRxClass*>();
+    AcRxClass* ancestor;
+    ancestor = x;
+    while (true) {
+        ancestry.push_back(ancestor);
+        if (ancestor == AcRxObject::desc()) { break; }
+        ancestor = ancestor->myParent();
+    }
+    return ancestry;
+}
+
+std::wstring ancestryToString(std::vector<AcRxClass*> ancestry) {
+    std::wstring returnValue;
+    for (int i = 0; i < ancestry.size();  i++) {
+        returnValue += std::wstring(ancestry.at(i)->name()) + (i < ancestry.size() - 1 ? L", ": L"");
+    }
+    return returnValue;
+}
+
+std::vector<AcRxClass*> getAncestry(const AcRxObject * const x) {
+    return getAncestry(x->isA());
+}
+
+
+
 void myAcutPrint(std::wstring x) {
     acutPrintf(x.c_str());
 }
@@ -361,6 +387,7 @@ void initApp()
     } else if (acdbOpenObject(pExtensionDictionary, pBlockTableRecord->extensionDictionary(), AcDb::kForRead) != Acad::eOk ) {
         acutPrintf(_T("Failed to open the block table's extension dictionary.\n"));
     } else {
+        // in this case, the block table record has an extension dictionary (pExtensionDictionary), and we have opened it 
         myAcutPrintLine(
             std::wstring(L"The block table record (") 
             + objectIdToString(pBlockTableRecord->objectId()) 
@@ -377,133 +404,193 @@ void initApp()
         for (AcDbDictionaryIterator* pDictionaryIterator = pExtensionDictionary->newIterator();
             !pDictionaryIterator->done();
             pDictionaryIterator->next()
-        ){
+        )
+        {
             std::wstring name = pDictionaryIterator->name();
             myAcutPrintLine(name + L": " + objectIdToString(pDictionaryIterator->objectId()), tabLevel);
             tabLevel++;
             AcDbObject* item;
-            if (acdbOpenObject(item, pDictionaryIterator->objectId(), AcDb::kForRead) != Acad::eOk) {
+
+            if (acdbOpenObject(item, pDictionaryIterator->objectId(), AcDb::kForRead) != Acad::eOk) 
+            {
                 myAcutPrintLine(L"unable to open the object.", tabLevel);
             }
-            else {
-
-                //acutPrintf((std::wstring(L"item->className(): ") + std::wstring(item->className()) + L"\n").c_str()); //always prints "AcDbObject", probably looking at the exact class of item
-
-
-                //acutPrintf((std::wstring(L"\t\titem->isA()->name(): \"") + std::wstring(item->isA()->name()) + L"\"\n").c_str());
-
-                //if (name == std::wstring(L"ACAD_ENHANCEDBLOCK") && item->isA() ==  AcDbEvalGraph::desc()) {
-                if (name == std::wstring(L"ACAD_ENHANCEDBLOCK") && item->isKindOf( AcDbEvalGraph::desc())) {
+            else if (name == std::wstring(L"ACAD_ENHANCEDBLOCK") && item->isKindOf( AcDbEvalGraph::desc())) 
+            {
                     myAcutPrintLine(L"found an enhanced (aka dynamic ?) block.", tabLevel);
                     tabLevel++;
                     AcDbEvalGraph* evalGraphP = (AcDbEvalGraph*) item;
-                    AcDbEvalNodeIdArray nodes;
-                    Acad::ErrorStatus errorStatus = evalGraphP->getAllNodes(nodes);
-                    if (errorStatus == Acad::ErrorStatus::eOk) {
-                        myAcutPrintLine(L"hooray we got the nodes.", tabLevel);
-                    }
-                    else {
+                    AcDbEvalNodeIdArray nodeIds;
+                    Acad::ErrorStatus errorStatus = evalGraphP->getAllNodes(nodeIds);
+                    if (errorStatus != Acad::ErrorStatus::eOk) 
+                    {
                         myAcutPrintLine(L"encountered an error while attempting to get the nodes.", tabLevel);
                     }
+                    else 
+                    {
+                        myAcutPrintLine(std::wstring(L"hooray we got the nodes.  There are ") + std::to_wstring(nodeIds.length()) + L" nodes.", tabLevel);
+                        AcDbEvalEdgeInfoArray edges;
+                        //AcDbEvalEdgeInfoArray incomingEdges;
+
+                        //for (int i = 0; i < nodeIds.length(); i++) {
+                        for (int i = nodeIds.length() - 1; i >= 0; i--) {
+
+                            AcDbEvalNodeId nodeId = nodeIds.at(i);
+                            AcDbObject* nodeP;
+                            Acad::ErrorStatus errorStatus;
+                            errorStatus = evalGraphP->getNode(nodeId, AcDb::kForRead, &nodeP);
+                            if (errorStatus != Acad::eOk) {
+                                myAcutPrintLine(std::wstring(L"failed to open node ") + std::to_wstring(i) + L", whose id is " + std::to_wstring(nodeId), tabLevel);
+                            }
+                            else {
+                                myAcutPrintLine(std::wstring(L"succesfully opened node ") + std::to_wstring(i) 
+                                    +L" (" + objectIdToString(nodeP->objectId()) + L")"
+                                    + L", whose id is " + std::to_wstring(nodeId)
+                                    + L" and whose class ancestry is "
+                                    + ancestryToString(getAncestry(nodeP->isA())), 
+                                    tabLevel
+                                );  
+                                evalGraphP->getOutgoingEdges(nodeId, edges);
+                                //evalGraphP->getIncomingEdges(nodeId, incomingEdges);
+                                //myAcutPrintLine(std::wstring(L"edges.length(): ") + std::to_wstring(edges.length()), tabLevel);
+                                //myAcutPrintLine(std::wstring(L"incomingEdges.length(): ") + std::to_wstring(incomingEdges.length()), tabLevel);
+                                nodeP->close();
+                            }      
+                        }
+                        myAcutPrintLine(std::wstring(L"edges:"), tabLevel);
+                        tabLevel++;
+                        for (int i = 0; i < edges.length(); i++)
+                        {
+                            AcDbObject* fromNode;
+                            AcDbObject* toNode;
+                            
+                            evalGraphP->getNode(edges.at(i)->from(), AcDb::kForRead, &fromNode);
+                            evalGraphP->getNode(edges.at(i)->to(), AcDb::kForRead, &toNode);
+
+                            myAcutPrintLine(
+                                std::to_wstring(edges.at(i)->from()) + L" (" + objectIdToString(fromNode->objectId()) + L")"
+                                + L" --> " 
+                                + std::to_wstring(edges.at(i)->to()) + L" (" + objectIdToString(toNode->objectId()) + L")"
+                                + (edges.at(i)->isInvertible() ? L" invertible " : L"") 
+                                + (edges.at(i)->isSuppressed() ? L" suppressed " : L"") 
+                                , tabLevel
+                            );
+                            
+                            fromNode->close();
+                            toNode->close();
+                        }
+                        tabLevel--;
+                        
+
+                    }
 
 
-                    tabLevel--;
-                } else if (name == std::wstring(L"AcDbDynamicBlockRoundTripPurgePreventer") && std::wstring(item->isA()->name()) == std::wstring(L"AcDbDynamicBlockPurgePreventer")) {
-                    myAcutPrintLine(L"found a purge preventer (what the hell is that?).", tabLevel);
-                    tabLevel++;
+                tabLevel--;
+            } 
+            else if (name == std::wstring(L"AcDbDynamicBlockRoundTripPurgePreventer") && std::wstring(item->isA()->name()) == std::wstring(L"AcDbDynamicBlockPurgePreventer")) 
+            {
+                myAcutPrintLine(L"found a purge preventer (what the hell is that?).", tabLevel);
+                tabLevel++;
 
-                    myAcutPrintLine(std::wstring(L"ancestors of item->isA(): "), tabLevel);
+                myAcutPrintLine(std::wstring(L"ancestors of item->isA(): "), tabLevel);
+                tabLevel++;
+                std::list<AcRxClass*> ancestryList;
+
+                AcRxClass* ancestor = item->isA();
+                while (true) {
+                    ancestryList.push_front(ancestor);
+                    if (ancestor == AcRxObject::desc()) { break; }
+
+                    ancestor = ancestor->myParent();
+                }
+
+                    
+                for (decltype(ancestryList)::iterator it = ancestryList.begin(); it != ancestryList.end(); ++it) {
+                    //myAcutPrintLine(std::wstring(L"ancestor ") + std::to_wstring(i) + L" class: " + (*it)->name() , tabLevel);
+                    myAcutPrintLine((*it)->name(), tabLevel);
+                }
+                tabLevel--;
+
+                if (false) {
+                    //myAcutPrintLine(std::wstring(L"item->isA()->descendants()->isA()->name(): ") + ((AcRxObject*) item->isA()->descendants())->isA()->name(), tabLevel);
+                    //myAcutPrintLine(std::wstring(L"item->isA()->descendants()->isA()->name(): ") + ((AcRxClass**) item->isA()->descendants())[0]->name(), tabLevel);
+                    //myAcutPrintLine(std::wstring(L"item->isA()->descendants(): ") + std::to_wstring((uintptr_t) item->isA()->descendants()), tabLevel); //returns 0
+                    //myAcutPrintLine(std::wstring(L"item->isA()->myParent()->descendants(): ") + std::to_wstring((uintptr_t)item->isA()->myParent()->descendants()), tabLevel); //returns 0
+                    //myAcutPrintLine(std::wstring(L"item->isA()->myParent()->descendants()->isA()->name: ") + ((AcRxObject*) item->isA()->myParent()->descendants())->isA()->name(), tabLevel); //returns 0
+                    //myAcutPrintLine(std::wstring(L"item->isA(): ") + std::to_wstring((uintptr_t)item->isA()), tabLevel);
+                    myAcutPrintLine(std::wstring(L"ancestors of item->isA()->myParent()->descendants()->isA(): "), tabLevel);
+
                     tabLevel++;
                     std::list<AcRxClass*> ancestryList;
-
-                    AcRxClass* ancestor = item->isA();
+                    ancestryList = std::list<AcRxClass*>();
+                    ancestor = ((AcRxObject*)item->isA()->myParent()->descendants())->isA();
                     while (true) {
                         ancestryList.push_front(ancestor);
                         if (ancestor == AcRxObject::desc()) { break; }
-
                         ancestor = ancestor->myParent();
                     }
 
-                    
+                    int i = 0;
                     for (decltype(ancestryList)::iterator it = ancestryList.begin(); it != ancestryList.end(); ++it) {
-                        //myAcutPrintLine(std::wstring(L"ancestor ") + std::to_wstring(i) + L" class: " + (*it)->name() , tabLevel);
-                        myAcutPrintLine((*it)->name(), tabLevel);
+                        myAcutPrintLine(std::wstring(L"ancestor ") + std::to_wstring(i) + L" class: " + (*it)->name(), tabLevel);
+                        i++;
                     }
-                    tabLevel--;
 
-                    if (false) {
-                        //myAcutPrintLine(std::wstring(L"item->isA()->descendants()->isA()->name(): ") + ((AcRxObject*) item->isA()->descendants())->isA()->name(), tabLevel);
-                        //myAcutPrintLine(std::wstring(L"item->isA()->descendants()->isA()->name(): ") + ((AcRxClass**) item->isA()->descendants())[0]->name(), tabLevel);
-                        //myAcutPrintLine(std::wstring(L"item->isA()->descendants(): ") + std::to_wstring((uintptr_t) item->isA()->descendants()), tabLevel); //returns 0
-                        //myAcutPrintLine(std::wstring(L"item->isA()->myParent()->descendants(): ") + std::to_wstring((uintptr_t)item->isA()->myParent()->descendants()), tabLevel); //returns 0
-                        //myAcutPrintLine(std::wstring(L"item->isA()->myParent()->descendants()->isA()->name: ") + ((AcRxObject*) item->isA()->myParent()->descendants())->isA()->name(), tabLevel); //returns 0
-                        //myAcutPrintLine(std::wstring(L"item->isA(): ") + std::to_wstring((uintptr_t)item->isA()), tabLevel);
-                        myAcutPrintLine(std::wstring(L"ancestors of item->isA()->myParent()->descendants()->isA(): "), tabLevel);
+                    /* ancestors of item->isA()->myParent()->descendants()->isA() :
+                            ancestor 0 class : AcRxObject
+                            ancestor 1 class : AcRxSet
+                            ancestor 2 class : AcRxImpSet
+                    */ // neither AcRxSet nor AcRxImpSet is mentioned in the documentation.
 
-                        tabLevel++;
-                        std::list<AcRxClass*> ancestryList;
-                        ancestryList = std::list<AcRxClass*>();
-                        ancestor = ((AcRxObject*)item->isA()->myParent()->descendants())->isA();
-                        while (true) {
-                            ancestryList.push_front(ancestor);
-                            if (ancestor == AcRxObject::desc()) { break; }
-                            ancestor = ancestor->myParent();
-                        }
+                    AcArray<AcRxClass>* arrayOfRxClassesP;
+                    //AcRxObject* mysteryDescendantsObject = ((AcRxObject*) item->isA()->myParent()->descendants() );
+                    AcRxObject* mysteryDescendantsObject = ((AcRxObject*)item->isA()->myParent()->myParent()->descendants());
 
-                        int i = 0;
-                        for (decltype(ancestryList)::iterator it = ancestryList.begin(); it != ancestryList.end(); ++it) {
-                            myAcutPrintLine(std::wstring(L"ancestor ") + std::to_wstring(i) + L" class: " + (*it)->name(), tabLevel);
-                            i++;
-                        }
+                    arrayOfRxClassesP = (AcArray<AcRxClass>*) mysteryDescendantsObject;
 
-                        /* ancestors of item->isA()->myParent()->descendants()->isA() :
-                             ancestor 0 class : AcRxObject
-                             ancestor 1 class : AcRxSet
-                             ancestor 2 class : AcRxImpSet
-                        */ // neither AcRxSet nor AcRxImpSet is mentioned in the documentation.
+                    myAcutPrintLine(std::wstring(L"arrayOfRxClassesP->length(): ") + std::to_wstring(arrayOfRxClassesP->length()), tabLevel);
 
-                        AcRxObject* mysteryDescendantsObject = ((AcRxObject*)item->isA()->myParent()->descendants());
-                        AcRxClass* mysteryDescendantsClass = mysteryDescendantsObject->isA();
-                        AcRxClass* mysteryAcRxSetClass = mysteryDescendantsObject->isA()->myParent();
-                        //myAcutPrintLine(std::wstring(L"mysteryDescendantsObject->isA()->name(): ") + mysteryDescendantsObject->isA()->name(), tabLevel);
-                        myAcutPrintLine(std::wstring(L"mysteryDescendantsClass->name(): ") + mysteryDescendantsClass->name(), tabLevel);
-                        myAcutPrintLine(std::wstring(L"mysteryAcRxSetClass->name(): ") + mysteryAcRxSetClass->name(), tabLevel);
-                        myAcutPrintLine(std::wstring(L"mysteryAcRxSetClass->members(): ") + std::to_wstring((uintptr_t)mysteryAcRxSetClass->members()), tabLevel); //prints 0
+                    AcRxClass* mysteryDescendantsClass = mysteryDescendantsObject->isA();
+                    AcRxClass* mysteryAcRxSetClass = mysteryDescendantsObject->isA()->myParent();
+                    //myAcutPrintLine(std::wstring(L"mysteryDescendantsObject->isA()->name(): ") + mysteryDescendantsObject->isA()->name(), tabLevel);
+                    myAcutPrintLine(std::wstring(L"mysteryDescendantsClass->name(): ") + mysteryDescendantsClass->name(), tabLevel);
+                    myAcutPrintLine(std::wstring(L"mysteryAcRxSetClass->name(): ") + mysteryAcRxSetClass->name(), tabLevel);
+                    myAcutPrintLine(std::wstring(L"mysteryAcRxSetClass->members(): ") + std::to_wstring((uintptr_t)mysteryAcRxSetClass->members()), tabLevel); //prints 0
 
-                        // how can we (if at all) iterate over all instances of AcRxClass to completely traverse the entire taxonomy of AcRxObject descendants?
+                    // how can we (if at all) iterate over all instances of AcRxClass to completely traverse the entire taxonomy of AcRxObject descendants?
 
-                        //AcRxMemberCollection* memberCollectionP = ((AcRxObject*)item->isA()->myParent()->descendants())->isA()->members();
+                    //AcRxMemberCollection* memberCollectionP = ((AcRxObject*)item->isA()->myParent()->descendants())->isA()->members();
 
-                        //for (int i = 0; i < memberCollectionP->count(); i++) {
-                        //    myAcutPrintLine(std::wstring(L"member ") + memberCollectionP->getAt(i)->isA()->name(), tabLevel);
-                        //}
-
-                        tabLevel--;
-                    }
-                    
-                    myAcutPrintLine(std::wstring(L"item->isA()->members(): ") + std::to_wstring((uintptr_t)item->isA()->members()), tabLevel); //prints 0
-
-                    myAcutPrintLine(objectIdToString(item->objectId()), tabLevel);
-                    tabLevel++;
-                    AcDbObjectId ownerId = item->ownerId();
-                    while (true) {
-                        myAcutPrintLine(L"is owned by " + objectIdToString(ownerId), tabLevel);
-                        if (ownerId == AcDbObjectId::kNull) { break; }
-                        AcDbObject* owner;
-                        if( acdbOpenObject(owner, ownerId, AcDb::kForRead) != Acad::eOk) {
-                            myAcutPrintLine(L"unable to open owner.", tabLevel);
-                            break;
-                        }
-                        else {
-                            ownerId = owner->ownerId();
-                        }
-                    }
-                    tabLevel--;
-
+                    //for (int i = 0; i < memberCollectionP->count(); i++) {
+                    //    myAcutPrintLine(std::wstring(L"member ") + memberCollectionP->getAt(i)->isA()->name(), tabLevel);
+                    //}
 
                     tabLevel--;
                 }
+                    
+                myAcutPrintLine(std::wstring(L"item->isA()->members(): ") + std::to_wstring((uintptr_t)item->isA()->members()), tabLevel); //prints 0
+
+                myAcutPrintLine(objectIdToString(item->objectId()), tabLevel);
+                tabLevel++;
+                AcDbObjectId ownerId = item->ownerId();
+                while (true) {
+                    myAcutPrintLine(L"is owned by " + objectIdToString(ownerId), tabLevel);
+                    if (ownerId == AcDbObjectId::kNull) { break; }
+                    AcDbObject* owner;
+                    if( acdbOpenObject(owner, ownerId, AcDb::kForRead) != Acad::eOk) {
+                        myAcutPrintLine(L"unable to open owner.", tabLevel);
+                        break;
+                    }
+                    else {
+                        ownerId = owner->ownerId();
+                    }
+                }
+                tabLevel--;
+
+
+                tabLevel--;
             }
+            
             tabLevel--;
         }
         tabLevel--;
