@@ -373,7 +373,7 @@ void initApp()
     AcDbBlockTable* pBlockTable;
     AcDbBlockTableRecord* pBlockTableRecord;
     pDb->getSymbolTable(pBlockTable, AcDb::kForRead);
-    pBlockTable->getAt(_T("remediationWellWithNoConstituentsOfConcernInPerchedGroundwater"), pBlockTableRecord, AcDb::kForRead);
+    pBlockTable->getAt(_T("injectionWellWithNoConstituentsOfConcernInPerchedGroundwater"), pBlockTableRecord, AcDb::kForRead);
     pBlockTable->close();
     //inspect any xdata that the block table record  might own:
     acutPrintf((std::wstring(L"xData attached to the block table record: ") + ResbufWrapper(pBlockTableRecord->xData()).toString() + L"\n").c_str());
@@ -454,6 +454,9 @@ void initApp()
                                 //evalGraphP->getIncomingEdges(nodeId, incomingEdges);
                                 //myAcutPrintLine(std::wstring(L"edges.length(): ") + std::to_wstring(edges.length()), tabLevel);
                                 //myAcutPrintLine(std::wstring(L"incomingEdges.length(): ") + std::to_wstring(incomingEdges.length()), tabLevel);
+                                acdbEntGet();
+                                
+                                
                                 nodeP->close();
                             }      
                         }
