@@ -156,7 +156,7 @@ class ResbufWrapper {
                     int inxdata;
                     short resultTypeCode;
                     resultTypeCode = dxftype(head->restype, ET_NORM, &inxdata);
-                    returnValue += std::wstring(_T("\t")) + _T("type: ") + ResbufWrapper::resultTypeCodeToString(resultTypeCode) + L", ";
+                    returnValue += std::wstring(_T("\t")) + _T("type: ") + std::to_wstring(head->restype) + L"(" + ResbufWrapper::resultTypeCodeToString(resultTypeCode) + L")" + L", ";
                     returnValue += std::wstring(_T("value: "));
 
                     switch (resultTypeCode) {
@@ -439,27 +439,33 @@ void initApp()
                             AcDbObject* nodeP;
                             Acad::ErrorStatus errorStatus;
                             errorStatus = evalGraphP->getNode(nodeId, AcDb::kForRead, &nodeP);
+                            ads_name eNameOfTheNode;
+                            acdbGetAdsName(eNameOfTheNode, nodeP->objectId());
                             if (errorStatus != Acad::eOk) {
                                 myAcutPrintLine(std::wstring(L"failed to open node ") + std::to_wstring(i) + L", whose id is " + std::to_wstring(nodeId), tabLevel);
                             }
                             else {
                                 myAcutPrintLine(std::wstring(L"succesfully opened node ") + std::to_wstring(i) 
                                     +L" (" + objectIdToString(nodeP->objectId()) + L")"
-                                    + L", whose id is " + std::to_wstring(nodeId)
+                                    + L" (" + L"ename: " + std::to_wstring(eNameOfTheNode[0]) + L" " + std::to_wstring(eNameOfTheNode[1]) + L")"
+                                    + L", whose nodeId is " + std::to_wstring(nodeId)
                                     + L" and whose class ancestry is "
                                     + ancestryToString(getAncestry(nodeP->isA())), 
                                     tabLevel
                                 );  
+                                
+                                myAcutPrintLine(ResbufWrapper(acdbEntGet(eNameOfTheNode)).toString(),tabLevel );
                                 evalGraphP->getOutgoingEdges(nodeId, edges);
                                 //evalGraphP->getIncomingEdges(nodeId, incomingEdges);
                                 //myAcutPrintLine(std::wstring(L"edges.length(): ") + std::to_wstring(edges.length()), tabLevel);
                                 //myAcutPrintLine(std::wstring(L"incomingEdges.length(): ") + std::to_wstring(incomingEdges.length()), tabLevel);
-                                acdbEntGet();
+                                
                                 
                                 
                                 nodeP->close();
                             }      
                         }
+                        
                         myAcutPrintLine(std::wstring(L"edges:"), tabLevel);
                         tabLevel++;
                         for (int i = 0; i < edges.length(); i++)
