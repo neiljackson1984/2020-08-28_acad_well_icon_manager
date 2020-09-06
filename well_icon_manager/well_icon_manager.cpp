@@ -1,17 +1,3 @@
-//////////////////////////////////////////////////////////////////////////////
-//
-//  Copyright 2020 Autodesk, Inc.  All rights reserved.
-//
-//  Use of this software is subject to the terms of the Autodesk license 
-//  agreement provided at the time of installation or download, or which 
-//  otherwise accompanies this software in either electronic or hard copy form.   
-//
-//////////////////////////////////////////////////////////////////////////////
-//
-// Description:
-//
-// This program demonstrates iterating over the vertices of
-// a polyline
 
 #if defined(_DEBUG) && !defined(AC_FULL_DEBUG)
 #error _DEBUG should not be defined except in internal Adesk debug builds
