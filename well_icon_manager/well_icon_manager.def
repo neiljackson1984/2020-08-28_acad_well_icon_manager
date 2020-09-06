@@ -1,0 +1,4 @@
+LIBRARY "well_icon_manager.arx"
+EXPORTS
+    acrxEntryPoint PRIVATE
+    acrxGetApiVersion PRIVATE

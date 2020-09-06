@@ -1,4 +1,0 @@
-﻿  well_icon_manager.cpp
-     Creating library x64\Debug\well_icon_manager.lib and object x64\Debug\well_icon_manager.exp
-rxapi.lib(libinit.obj) : warning LNK4099: PDB 'rxapi.pdb' was not found with 'rxapi.lib(libinit.obj)' or at 'C:\work\2020-08-28_acad_well_icon_manager\ObjectARX_for_AutoCAD_2021_Win_64bit\samples\database\well_icon_manager\x64\Debug\rxapi.pdb'; linking object as if no debug info
-  well_icon_manager.vcxproj -> C:\work\2020-08-28_acad_well_icon_manager\ObjectARX_for_AutoCAD_2021_Win_64bit\samples\database\well_icon_manager\x64\Debug\well_icon_manager.arx
